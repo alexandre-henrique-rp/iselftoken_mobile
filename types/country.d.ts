@@ -1,0 +1,23 @@
+export interface CountryApi {
+  id: number,
+  name: string,
+  iso3: string,
+  iso2: string,
+  numeric_code: string,
+  phonecode: string,
+  capital: string,
+  currency: string,
+  currency_name: string,
+  currency_symbol: string,
+  tld: string,
+  native: string,
+  region: string,
+  region_id: string,
+  subregion: string,
+  subregion_id: string,
+  nationality: string,
+  latitude: string,
+  longitude: string,
+  emoji: string,
+  emojiU: string
+}
