@@ -108,12 +108,6 @@ export default function RootLayout() {
               <Stack>
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                 <Stack.Screen name="(app)" options={{ headerShown: false }} />
-                <Stack.Screen name="dev" options={{ 
-                  headerShown: true, 
-                  title: 'Design System',
-                  presentation: 'modal'
-                }} />
-                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
               </Stack>
               <StatusBar style="light" />
             </AuthGuard>

@@ -20,25 +20,37 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/button';
 import { SimpleInput } from '@/components/ui/simple-input';
 import { PasswordInput } from '@/components/ui/password-input';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { PasswordStrengthIndicator } from '@/components/ui/password-strength-indicator';
 import { DDISelect } from '@/components/ui/ddi-select';
 import { Colors } from '@/constants';
-import { useLoading } from '@/contexts'; // 🚀 Import para controle manual
+import { useLoading } from '@/contexts';
+import { validateRegisterForm } from '@/utils/validation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import generateA2fCode from '@/utils/af2';
+
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { stopLoading } = useLoading(); // 🚀 Controle manual do loading
+  const { stopLoading } = useLoading();
   
   // Estados do formulário
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
     telefone: '',
-    ddi: '+55', // 🌍 Adicionado estado para DDI
+    ddi: '+55',
     senha: '',
     confirmarSenha: '',
     termosAceitos: false,
     politicaAceita: false,
   });
+
+  // Estado de erros de validação
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Estado de erro geral (API, rede, etc.)
+  const [generalError, setGeneralError] = useState<string>('');
 
   // Handlers
   const handleBack = () => {
@@ -46,39 +58,93 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    console.log("=== SUBMIT CADASTRO ===");
-    console.log("Dados completos:", formData);
+    
+    // Validação do formulário
+    const validation = validateRegisterForm(
+      formData.nome,
+      formData.email,
+      formData.senha,
+      formData.confirmarSenha
+    );
+    
+    // Validações adicionais
+    const additionalErrors: Record<string, string> = {};
+    
+    // Valida telefone
+    if (!formData.telefone) {
+      additionalErrors.telefone = 'Telefone é obrigatório';
+    } else if (formData.telefone.length < 10) {
+      additionalErrors.telefone = 'Telefone incompleto';
+    }
+    
+    // Valida termos
+    if (!formData.termosAceitos) {
+      additionalErrors.termos = 'Aceite os Termos de Uso';
+    }
+    
+    if (!formData.politicaAceita) {
+      additionalErrors.politica = 'Aceite a Política de Privacidade';
+    }
+    
+    // Combina erros de validação
+    const allErrors = { ...validation.errors, ...additionalErrors };
+    setErrors(allErrors);
+    
+    // Se houver erros, não continua
+    if (Object.keys(allErrors).length > 0) {
+      console.log("❌ Erros de validação:", allErrors);
+      return;
+    }
+    
+    // Limpa erro geral ao tentar novo cadastro
+    setGeneralError('');
     
     // Concatenando DDI + telefone para formato completo
     const telefoneCompleto = `${formData.ddi}${formData.telefone}`;
-    console.log("Telefone completo:", telefoneCompleto);
     
     // Dados formatados para API
     const dadosParaApi = {
       ...formData,
       telefone: telefoneCompleto,
     };
-    console.log("Dados para API:", dadosParaApi);
-    console.log("Tentativa de cadastro iniciada");
     
     // Simulando operação assíncrona (API call)
     try {
-      // Aqui iria a chamada real para API
-      // await PublicApi.register(dadosParaApi);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simula 2s de API
+      const codigo = generateA2fCode();
       
-      console.log("✅ Cadastro realizado com sucesso!");
-      
-      // 🚀 Para o loading manualmente quando a operação termina
+      // Operações AsyncStorage com tratamento de erro
+      try {
+        await AsyncStorage.setItem("formRegister", JSON.stringify(dadosParaApi));
+        await AsyncStorage.setItem("method", 'POST');
+        await AsyncStorage.setItem("redirect", '/(auth)/login');
+        await AsyncStorage.setItem("codigo", codigo);
+      } catch {
+        throw new Error('Erro ao salvar dados localmente. Verifique o espaço de armazenamento.');
+      }
+
+      // Para o loading antes de navegar
       stopLoading();
       
       // Navega para login após sucesso
-      router.replace('/(auth)/login');
+      router.replace('/(auth)/auth_af2');
       
     } catch (error) {
       console.error("❌ Erro no cadastro:", error);
       
-      // 🚀 Para o loading mesmo em caso de erro
+      // Extrai mensagem de erro amigável
+      let errorMessage = 'Erro ao cadastrar. Tente novamente.';
+      if (error instanceof Error) {
+        errorMessage = error.message || errorMessage;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String(error.message) || errorMessage;
+      }
+      
+      // Define erro geral para exibir ao usuário
+      setGeneralError(errorMessage);
+      
+      // Para o loading mesmo em caso de erro
       stopLoading();
     }
   };
@@ -89,6 +155,28 @@ export default function RegisterScreen() {
 
   const updateField = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Limpa erro geral quando usuário começa a digitar novamente
+    if (generalError) {
+      setGeneralError('');
+    }
+    
+    // Limpa erro do campo quando usuário começa a digitar
+    // Mapeamento correto dos nomes de campos
+    const errorFieldMap: Record<string, string> = {
+      nome: 'name',
+      email: 'email',
+      telefone: 'telefone',
+      senha: 'password',
+      confirmarSenha: 'passwordConfirmation',
+      termosAceitos: 'termos',
+      politicaAceita: 'politica',
+    };
+    
+    const errorField = errorFieldMap[field];
+    if (errorField && errors[errorField]) {
+      setErrors(prev => ({ ...prev, [errorField]: '' }));
+    }
   };
 
   return (
@@ -113,6 +201,13 @@ export default function RegisterScreen() {
 
           {/* Formulário */}
           <View style={styles.form}>
+            {/* Banner de erro geral */}
+            {generalError ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="warning-outline" size={20} color={Colors.error} />
+                <Text style={styles.errorBannerText}>{generalError}</Text>
+              </View>
+            ) : null}
             {/* Nome Completo */}
             <SimpleInput
               label="Nome completo"
@@ -121,6 +216,7 @@ export default function RegisterScreen() {
               onChangeText={(value) => updateField('nome', value)}
               style={styles.input}
               testID="nome-input"
+              error={errors.name}
               leftIcon={
                 <Ionicons
                   name="person-outline"
@@ -141,6 +237,7 @@ export default function RegisterScreen() {
               autoComplete="email"
               style={styles.input}
               testID="email-input"
+              error={errors.email}
               leftIcon={
                 <Ionicons
                   name="mail-outline"
@@ -159,13 +256,13 @@ export default function RegisterScreen() {
                 testID="ddi-select"
               />
               
-              <SimpleInput
+              <PhoneInput
                 placeholder="(11) 98765-4321"
                 value={formData.telefone}
                 onChangeText={(value) => updateField('telefone', value)}
-                keyboardType="phone-pad"
                 style={styles.phoneInput}
                 testID="phone-input"
+                error={errors.telefone}
                 leftIcon={
                   <Ionicons
                     name="call-outline"
@@ -183,6 +280,14 @@ export default function RegisterScreen() {
               onChangeText={(value) => updateField('senha', value)}
               style={styles.input}
               testID="senha-input"
+              error={errors.password}
+            />
+            
+            {/* Indicador de força da senha */}
+            <PasswordStrengthIndicator
+              password={formData.senha}
+              showStrengthBar={true}
+              showRequirements={true}
             />
 
             {/* Confirmar Senha */}
@@ -192,6 +297,7 @@ export default function RegisterScreen() {
               onChangeText={(value) => updateField('confirmarSenha', value)}
               style={styles.input}
               testID="confirmar-senha-input"
+              error={errors.passwordConfirmation}
             />
 
             {/* Checkboxes - Stub básico */}
@@ -199,7 +305,7 @@ export default function RegisterScreen() {
               style={styles.checkboxContainer}
               onPress={() => updateField('termosAceitos', !formData.termosAceitos)}
             >
-              <View style={[styles.checkbox, formData.termosAceitos && styles.checkboxChecked]}>
+              <View style={[styles.checkbox, formData.termosAceitos && styles.checkboxChecked, errors.termos && styles.checkboxError]}>
                 {formData.termosAceitos && (
                   <Ionicons name="checkmark" size={14} color="#fff" />
                 )}
@@ -209,12 +315,13 @@ export default function RegisterScreen() {
                 <Text style={styles.checkboxLink}>Termos de Uso</Text>
               </Text>
             </TouchableOpacity>
+            {errors.termos && <Text style={styles.checkboxErrorText}>{errors.termos}</Text>}
 
             <TouchableOpacity 
               style={styles.checkboxContainer}
               onPress={() => updateField('politicaAceita', !formData.politicaAceita)}
             >
-              <View style={[styles.checkbox, formData.politicaAceita && styles.checkboxChecked]}>
+              <View style={[styles.checkbox, formData.politicaAceita && styles.checkboxChecked, errors.politica && styles.checkboxError]}>
                 {formData.politicaAceita && (
                   <Ionicons name="checkmark" size={14} color="#fff" />
                 )}
@@ -224,6 +331,7 @@ export default function RegisterScreen() {
                 <Text style={styles.checkboxLink}>Política de Privacidade</Text>
               </Text>
             </TouchableOpacity>
+            {errors.politica && <Text style={styles.checkboxErrorText}>{errors.politica}</Text>}
 
             {/* Botão Criar Conta */}
             <Button
@@ -340,6 +448,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
+  checkboxError: {
+    borderColor: Colors.error,
+    backgroundColor: 'transparent',
+  },
   checkboxLabel: {
     flex: 1,
     color: Colors.text.tertiary,
@@ -350,9 +462,32 @@ const styles = StyleSheet.create({
     color: Colors.text.accent,
     fontWeight: '500',
   },
+  checkboxErrorText: {
+    fontSize: 12,
+    color: Colors.error,
+    marginTop: 4,
+    marginLeft: 32,
+  },
   registerButton: {
     marginTop: 24,
     marginBottom: 32,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)', // Vermelho com 10% opacidade
+    borderWidth: 1,
+    borderColor: Colors.error,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.error,
+    marginLeft: 8,
+    fontWeight: '500',
   },
   loginContainer: {
     flexDirection: 'row',

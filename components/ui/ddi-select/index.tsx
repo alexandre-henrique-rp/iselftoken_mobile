@@ -49,7 +49,7 @@ export function DDISelect({
   
   
   // Encontrar país selecionado atual
-  const selectedCountry = COUNTRIES.find(country => country.phonecode === value) || {
+  const selectedCountry = COUNTRIES.find(country => country.phonecode === value.replace('+', '')) || {
     emoji: '🇧🇷',
     name: 'Brasil',
     phonecode: '55'
@@ -71,7 +71,7 @@ export function DDISelect({
         <Text style={styles.countryName}>{item.name}</Text>
         <Text style={styles.countryDdi}>+{item.phonecode}</Text>
       </View>
-      {item.phonecode === value && (
+      {item.phonecode === value.replace('+', '') && (
         <Ionicons name="checkmark" size={20} color={Colors.primary} />
       )}
     </TouchableOpacity>

@@ -26,7 +26,7 @@ export const validateEmail = (email: string): string | null => {
 };
 
 /**
- * Valida formato da senha
+ * Valida formato da senha (requisitos básicos)
  */
 export const validatePassword = (password: string): string | null => {
   if (!password) {
@@ -49,6 +49,45 @@ export const validatePassword = (password: string): string | null => {
   // Verifica se tem pelo menos uma letra
   if (!/[a-zA-Z]/.test(password)) {
     return 'Senha deve conter pelo menos uma letra';
+  }
+
+  return null;
+};
+
+/**
+ * Valida formato da senha forte (requisitos para registro)
+ */
+export const validateStrongPassword = (password: string): string | null => {
+  if (!password) {
+    return 'Senha é obrigatória';
+  }
+
+  if (password.length < 11) {
+    return 'Senha deve ter pelo menos 11 caracteres';
+  }
+
+  if (password.length > 128) {
+    return 'Senha muito longa';
+  }
+
+  // Verifica se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(password)) {
+    return 'Senha deve conter pelo menos uma letra maiúscula';
+  }
+
+  // Verifica se tem pelo menos um caractere especial
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return 'Senha deve conter pelo menos um caractere especial';
+  }
+
+  // Verifica se tem pelo menos um número
+  if (!/\d/.test(password)) {
+    return 'Senha deve conter pelo menos um número';
+  }
+
+  // Verifica se tem pelo menos uma letra (minúscula)
+  if (!/[a-z]/.test(password)) {
+    return 'Senha deve conter pelo menos uma letra minúscula';
   }
 
   return null;
@@ -150,7 +189,7 @@ export const validateRegisterForm = (
     errors.email = emailError;
   }
 
-  const passwordError = validatePassword(password);
+  const passwordError = validateStrongPassword(password);
   if (passwordError) {
     errors.password = passwordError;
   }

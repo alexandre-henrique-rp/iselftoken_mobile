@@ -20,7 +20,7 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
  */
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   /**
    * Inicia loading com timer automático de 3 segundos
@@ -37,7 +37,7 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     timerRef.current = setTimeout(() => {
       setIsLoading(false);
       timerRef.current = null;
-    }, 3000);
+    }, 2000);
   };
 
   /**

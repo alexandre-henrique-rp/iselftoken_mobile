@@ -35,6 +35,13 @@ export default function AuthLayout() {
           presentation: 'modal',
         }}
       />
+      <Stack.Screen
+        name="auth_af2"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
     </Stack>
   );
 }
